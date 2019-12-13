@@ -1,0 +1,61 @@
+## (1) Loading required libraries. First time user would need to install these libraries before loading them.
+
+library("googleAuthR")
+
+library("googleAnalyticsR")
+
+library("dplyr")
+
+library(lubridate)
+
+library("RODBC")
+
+library(readxl)
+
+library(stringr)
+
+
+## Authenticating 
+
+ga_auth() 
+view_id <- XXXXXXXXX
+
+## (2) getting the dates right 
+
+SOM <- Sys.Date()-1
+EOM <- SOM
+
+## (3) pulling in sessions/traffic data from google analytics 
+
+GA_Traffic <- google_analytics(view_id,
+                                         
+                                         date_range = c(SOM,EOM),
+                                         
+                                         dimensions = c("date","deviceCategory"),
+                                         
+                                         metrics = c("transactionRevenue","itemQuantity","transactions","exits","users"),
+                                         
+                                         anti_sample = TRUE)
+
+## (4) Data transformation : changing the column names
+colnames(GA_Traffic)[1:5] <- c("Date","Device","Revenue","Units","transactions")
+
+## (5) Data transformation
+a <- paste0("'",GA_Traffic$Device,"' ,'",GA_Traffic$Date,"' ,",GA_Traffic$Revenue," ,",GA_Traffic$Units," ,",GA_Traffic$transactions," ,",GA_Traffic$exits," ,",GA_Traffic$users)
+GA_Traffic <- GA_Traffic %>% mutate()
+b <- paste0("insert into [ha_report].[dbo].[tbl_Direct_Sales] ([DirectSaletype],[Date],[Sales] ,[Units],[Orders],[Visits],[UniqueVisitors]) values (",a,")")
+append_values <- paste(b, collapse = " ")
+
+## (6) Appending the transformed data to exisiting SQL database table
+  
+   ## Create a User DSN named 'Datamart1' . This DSN for sql server driver needs to be created with database set to master before running this code. 
+  mycon1 <-odbcConnect("Datamart1", uid="Merilytics", pwd="*******")
+  
+   # Drop values if already existing 
+  drop_value <-  paste0("between"," '",SOM,"' ","and"," '",EOM,"'")
+  Dropping_rows <- sqlQuery(mycon1,paste0("DELETE FROM [ha_report].[dbo].[tbl_Direct_Sales] WHERE date ",drop_value,""))
+  
+   # Updating table
+  Adding_rows <- sqlQuery(mycon1,append_values)
+  
+  rm("mycon1")
